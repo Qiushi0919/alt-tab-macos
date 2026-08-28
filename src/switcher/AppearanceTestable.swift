@@ -1,6 +1,32 @@
 import Foundation
 
 class AppearanceTestable {
+    /// Stable-partition an already-sorted window list by display. Keeping the incoming order inside
+    /// each display preserves the user's MRU/alphabetical/Space ordering preference.
+    static func indicesGroupedByDisplay(_ displayIndices: [Int?], fallbackDisplayIndex: Int) -> [Int] {
+        displayIndices.enumerated().sorted {
+            let lhs = $0.element ?? fallbackDisplayIndex
+            let rhs = $1.element ?? fallbackDisplayIndex
+            return lhs == rhs ? $0.offset < $1.offset : lhs < rhs
+        }.map(\.offset)
+    }
+
+    static func startsNewDisplayRow(_ previousDisplayIndex: Int?, _ displayIndex: Int, _ enabled: Bool) -> Bool {
+        enabled && previousDisplayIndex.map { $0 != displayIndex } == true
+    }
+
+    static func startsDisplayGroup(_ previousDisplayIndex: Int?, _ displayIndex: Int, _ enabled: Bool) -> Bool {
+        enabled && previousDisplayIndex != displayIndex
+    }
+
+    static func displayGroupTitle(_ displayNumber: Int, _ displayLabel: String, _ spacesLabel: String) -> String {
+        "\(displayLabel) \(displayNumber) · \(spacesLabel)"
+    }
+
+    static func shouldRetryMirrorSnapshot(_ failedAttempts: Int, _ maximumAttempts: Int = 3) -> Bool {
+        failedAttempts < maximumAttempts
+    }
+
     /// How wide should the TilesPanel be, for comfortable viewing?
     /// * a comfortable field-of-view is 50-60 degrees
     /// * people sit at various distances from the screen. We can't know how far they sit

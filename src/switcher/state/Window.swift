@@ -270,6 +270,7 @@ class Window {
                 let thumbnailSize = TileView.thumbnailSize(size, false)
                 let newSize = thumbnailSize.width != view.thumbnail.frame.width || thumbnailSize.height != view.thumbnail.frame.height
                 view.thumbnail.updateContents(screenshot, thumbnailSize)
+                TilesPanelMirrors.scheduleSync()
                 // if the thumbnail size has changed, we need to refresh the open UI
                 if newSize {
                     App.refreshOpenUiAfterExternalEvent([])

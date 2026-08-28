@@ -144,7 +144,7 @@ class ProTransitionManager {
         onAction?(action)
     }
 
-    // MARK: - Pass-through accessors for external callers (QAMenu, Day35FinalWindow, etc.)
+    // MARK: - Pass-through accessors for external callers
 
     var hasSeenWelcome: Bool { get { state.hasSeenWelcome } set { state.hasSeenWelcome = newValue } }
     var hasSeenDay4Tour: Bool { get { state.hasSeenDay4Tour } set { state.hasSeenDay4Tour = newValue } }

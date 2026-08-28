@@ -58,6 +58,9 @@
 /* No comment provided by engineer. */
 "Additional controls" = "Additional controls";
 
+/* Switcher heading for a group of windows on one display. */
+"Display" = "Display";
+
 /* No comment provided by engineer. */
 "Additional controls…" = "Additional controls…";
 

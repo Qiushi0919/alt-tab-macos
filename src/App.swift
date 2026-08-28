@@ -461,12 +461,6 @@ class App: AppCenterApplication {
             pendingShowSettingsWindow = false
             showSettingsWindow()
         }
-        #if DEBUG
-        QAMenu.shared = QAMenu()
-        QAMenu.shared?.orderFront(nil)
-        if QAMenu.openSettingsOnLaunch { App.showSettingsWindow() }
-        if QAMenu.graphEnabled { DebugMenu.setEnabled(true) }
-        #endif
         UsageStats.prune()
         ProTransitionManager.shared.onAction = { ProPromptHost.shared.dispatch($0) }
         ProTransitionManager.shared.onAppLaunchComplete()
@@ -523,8 +517,8 @@ extension App: NSApplicationDelegate {
             NotificationCenter.default.post(name: ProTransitionManager.proLockStateDidChangeNotification, object: nil)
         }
         #if DEBUG
-        // test affordance: `--mock-pro` skips the license keychain round-trip (which prompts/hangs for an
-        // ad-hoc build whose signature doesn't match the real app's keychain items). See QAMenu's Pro button.
+        // `--mock-pro` skips the license keychain round-trip for automated debug builds whose signature
+        // doesn't match the real app's keychain items.
         if CommandLine.arguments.contains("--mock-pro") { LicenseManager.shared.mockProUser() }
         #endif
         LicenseManager.shared.initialize()

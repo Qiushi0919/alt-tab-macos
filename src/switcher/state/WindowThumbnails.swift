@@ -55,8 +55,24 @@ enum WindowThumbnails {
     }
 
     /// The backing scale of the screen the window is on; captures are configured in pixels. Main-thread only
-    /// (`Screens.all` and `window.screenId` are plain mutable state owned by main).
+    /// (`Screens.all`, `window.screenId`, and `NSScreen.screens` are plain mutable state owned by main).
     static func captureScaleFactor(_ window: Window) -> CGFloat {
+        // Geometry is the freshest source during a display/Space transition. `screenId` can still name the
+        // previously active screen when the show-time screenshot burst is snapshotted; on a 1× + 2× setup
+        // that asks SCK for half the backing pixels and Flutter windows can arrive blank (WeChat regression).
+        if let position = window.position, let size = window.size {
+            let screens = NSScreen.screens
+            let top = screens.first.map { NSMaxY($0.frame) } ?? 0
+            let quartzFrames = screens.map { screen -> CGRect in
+                var frame = screen.frame
+                frame.origin.y = top - NSMaxY(frame)
+                return frame
+            }
+            if let index = WindowCaptureEventsTestable.screenIndexForCapture(
+                CGRect(origin: position, size: size), quartzFrames) {
+                return screens[index].backingScaleFactor
+            }
+        }
         if let screenId = window.screenId, let screen = Screens.all[screenId] {
             return screen.backingScaleFactor
         }
@@ -161,6 +177,8 @@ enum WindowThumbnails {
         var eligibleWindows = [Window]()
         for window in windows {
             if !window.isWindowlessApp, let cgWindowId = window.cgWindowId, cgWindowId != CGWindowID(bitPattern: -1),
+               !WindowCaptureEventsTestable.usesAppIconInsteadOfWindowCapture(
+                   window.application.bundleIdentifier),
                // mid-restore-animation the OS draws the window scaled down; `deferCaptureUntilRestoreEnds`
                // takes the one capture that matters once it is over
                !restoringWids.contains(cgWindowId) {

@@ -452,7 +452,7 @@ final class LicenseManagerTests: XCTestCase {
     }
 
     #if DEBUG
-    // mockProUser() is wrapped in #if DEBUG (it's a QAMenu helper only meant for dev/test builds).
+    // mockProUser() is wrapped in #if DEBUG and only meant for development/test builds.
     // CI runs `xcodebuild test -configuration Release` which strips DEBUG out, so the call site
     // must be guarded with the matching condition to keep the Release-config test build compiling.
     func testOnBeforeProUnlockFiresOnMockProUser() {
@@ -544,4 +544,3 @@ final class MockLicenseAPI: LicenseAPI {
         DispatchQueue.main.async { completion(r) }
     }
 }
-

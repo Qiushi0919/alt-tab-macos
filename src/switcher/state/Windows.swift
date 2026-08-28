@@ -139,7 +139,8 @@ class Windows {
             hideMinimized: f.showMinimizedWindows == .hide,
             onlyVisibleSpaces: f.spacesToShow == .visible,
             onlyNonVisibleSpaces: f.spacesToShow == .nonVisible,
-            onlyPreferredScreen: f.screensToShow == .showingAltTab,
+            // In all-displays mode every connected display is showing AltTab.
+            onlyPreferredScreen: f.screensToShow == .showingAltTab && Preferences.showOnScreen != .all,
             separateTabs: f.groupTabs == .separateWindows,
             frontmostPid: Applications.frontmostPid,
             visibleSpaceIds: Spaces.visibleSpaces,
@@ -461,6 +462,20 @@ class Windows {
                 minimizedAtEnd: minimizedAtEnd,
                 sortType: sortType)
         }
+        if Preferences.showOnScreen == .all {
+            let fallbackDisplayIndex = NSScreen.screens.firstIndex { $0 === NSScreen.preferred } ?? 0
+            let order = AppearanceTestable.indicesGroupedByDisplay(
+                list.map { displayIndex($0) },
+                fallbackDisplayIndex: fallbackDisplayIndex)
+            list = order.map { list[$0] }
+        }
+    }
+
+    /// Display order follows `NSScreen.screens` (menu-bar display first). A windowless app has no
+    /// geometry and returns nil; the grouping kernel assigns it to the triggered display.
+    static func displayIndex(_ window: Window) -> Int? {
+        guard let screenId = window.screenId else { return nil }
+        return NSScreen.screens.firstIndex { $0.cachedUuid() == screenId }
     }
 
     private static func orderWindow(_ window: Window, _ query: String) -> OrderWindow {

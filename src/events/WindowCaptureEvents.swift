@@ -18,7 +18,8 @@ class WindowCaptureScreenshots {
 
     /// `fullRes: false` = thumbnail-scale captures, delivered to `Window.thumbnail`.
     /// `fullRes: true` = full-resolution Preview frames, delivered to the session's capped cache (#5861).
-    static func oneTimeScreenshots(_ windowsToScreenshot: [Window], _ source: RefreshCausedBy, prioritizedIds: Set<CGWindowID>? = nil, fullRes: Bool = false) {
+    static func oneTimeScreenshots(_ windowsToScreenshot: [Window], _ source: RefreshCausedBy,
+                                   prioritizedIds: Set<CGWindowID>? = nil, fullRes: Bool = false) {
         // Snapshot Window state on the main thread before hopping to screenshotsQueue. Windows.byWindowId,
         // Window.size, Window.screenId, Screens.all, and NSScreen.preferred are plain (lock-free) dictionaries
         // and mutable properties touched only on main; reading them from screenshotsQueue (8-way concurrent)
@@ -28,6 +29,10 @@ class WindowCaptureScreenshots {
         var requests = [CGWindowID: CaptureRequest]()
         for window in windowsToScreenshot {
             guard let wid = window.cgWindowId, let size = window.size else { continue }
+            // Both WeChat variants opt their windows out of sharing. Leave thumbnail nil so the tile uses
+            // the app icon; trying to capture would return black or the pixels of an overlapping window.
+            if WindowCaptureEventsTestable.usesAppIconInsteadOfWindowCapture(
+                window.application.bundleIdentifier) { continue }
             let scaleFactor = WindowThumbnails.captureScaleFactor(window)
             requests[wid] = CaptureRequest(window: window, size: size, scaleFactor: scaleFactor,
                 isFullscreen: window.isFullscreen, fullRes: fullRes)

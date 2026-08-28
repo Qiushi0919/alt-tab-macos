@@ -24,6 +24,8 @@ class TilesView {
     static var layoutCache = LayoutCache()
     static var thumbnailUnderLayer = TileUnderLayer()
     static var thumbnailOverView = TileOverView()
+    private static var displayGroupLabels = [LightLabel]()
+    private static let displayGroupHeaderHeight = CGFloat(20)
     private static var initialized = false
 
     static func initialize() {
@@ -348,6 +350,7 @@ class TilesView {
             focusedView: focusedView.frame != .zero ? focusedView : nil,
             hoveredView: hoveredView != focusedView && hoveredView?.frame != .zero ? hoveredView : nil
         )
+        TilesPanelMirrors.scheduleSync()
     }
 
     static func nextRow(_ direction: Direction, allowWrap: Bool = true) -> [TileView]? {
@@ -457,6 +460,7 @@ class TilesView {
         var currentX = startingX
         var currentY = Appearance.interCellPadding
         var maxY = currentY + height + Appearance.interCellPadding
+        var previousDisplayIndex: Int?
         var index = 0
         while index < TilesView.recycledViews.count {
             guard SwitcherSession.isActive else { return maxY }
@@ -467,8 +471,23 @@ class TilesView {
             guard Windows.shouldDisplay(window) else { view.frame = .zero; continue }
             view.updateRecycledCellWithNewContent(window, index, height)
             let width = view.frame.size.width
+            let displayIndex = Windows.displayIndex(window)
+                ?? (NSScreen.screens.firstIndex { $0 === NSScreen.preferred } ?? 0)
+            let startsDisplayGroup = AppearanceTestable.startsDisplayGroup(
+                previousDisplayIndex, displayIndex, Preferences.showOnScreen == .all)
+            let startsDisplayRow = AppearanceTestable.startsNewDisplayRow(
+                previousDisplayIndex, displayIndex, Preferences.showOnScreen == .all)
+            if startsDisplayRow {
+                currentX = startingX
+                currentY = (currentY + height + Appearance.interCellPadding).rounded(.down)
+                maxY = max(currentY + height + Appearance.interCellPadding, maxY)
+            }
+            if startsDisplayGroup {
+                currentY += displayGroupHeaderHeight
+                maxY = max(currentY + height + Appearance.interCellPadding, maxY)
+            }
             let projectedX = projectedWidth(currentX, width).rounded(.down)
-            if needNewLine(projectedX, widthMax) {
+            if !startsDisplayRow && needNewLine(projectedX, widthMax) {
                 currentX = startingX
                 currentY = (currentY + height + Appearance.interCellPadding).rounded(.down)
                 currentX = projectedWidth(currentX, width).rounded(.down)
@@ -476,6 +495,7 @@ class TilesView {
             } else {
                 currentX = projectedX
             }
+            previousDisplayIndex = displayIndex
         }
         return maxY
     }
@@ -490,7 +510,9 @@ class TilesView {
         var maxX = CGFloat(0)
         var maxY = currentY + height + Appearance.interCellPadding
         var newViews = [TileView]()
+        var newDisplayGroupLabels = [LightLabel]()
         var rowSignature = [Int]()
+        var previousDisplayIndex: Int?
         rows.removeAll(keepingCapacity: true)
         rows.append([TileView]())
         var index = 0
@@ -506,23 +528,50 @@ class TilesView {
                 }
                 view.updateRecycledCellWithNewContent(window, index, height)
                 let width = view.frame.size.width
+                let displayIndex = Windows.displayIndex(window)
+                    ?? (NSScreen.screens.firstIndex { $0 === NSScreen.preferred } ?? 0)
+                let startsDisplayGroup = AppearanceTestable.startsDisplayGroup(
+                    previousDisplayIndex, displayIndex, Preferences.showOnScreen == .all)
+                let startsDisplayRow = AppearanceTestable.startsNewDisplayRow(
+                    previousDisplayIndex, displayIndex, Preferences.showOnScreen == .all)
+                if startsDisplayRow {
+                    currentX = startingX
+                    currentY = (currentY + height + Appearance.interCellPadding).rounded(.down)
+                    maxY = max(currentY + height + Appearance.interCellPadding, maxY)
+                    rows.append([TileView]())
+                    rowSignature.append(-1)
+                }
+                if startsDisplayGroup {
+                    let label = displayGroupLabel(newDisplayGroupLabels.count)
+                    label.stringValue = AppearanceTestable.displayGroupTitle(
+                        displayIndex + 1,
+                        NSLocalizedString("Display", comment: "Switcher heading for windows grouped by display"),
+                        Preferences.spacesToShow[SwitcherSession.activeShortcutIndex].localizedString)
+                    label.frame = CGRect(x: Appearance.interCellPadding, y: currentY,
+                        width: max(0, widthMax - Appearance.interCellPadding * 2), height: displayGroupHeaderHeight)
+                    newDisplayGroupLabels.append(label)
+                    currentY += displayGroupHeaderHeight
+                    maxY = max(currentY + height + Appearance.interCellPadding, maxY)
+                }
                 let projectedX = projectedWidth(currentX, width).rounded(.down)
-                if needNewLine(projectedX, widthMax) {
+                if !startsDisplayRow && needNewLine(projectedX, widthMax) {
                     currentX = startingX
                     currentY = (currentY + height + Appearance.interCellPadding).rounded(.down)
                     view.frame.origin = CGPoint(x: localizedCurrentX(currentX, width), y: currentY)
                     currentX = projectedWidth(currentX, width).rounded(.down)
                     maxY = max(currentY + height + Appearance.interCellPadding, maxY)
                     rows.append([TileView]())
+                    rowSignature.append(-1)
                 } else {
                     view.frame.origin = CGPoint(x: localizedCurrentX(currentX, width), y: currentY)
                     currentX = projectedX
-                    maxX = max(isLeftToRight ? currentX : widthMax - currentX, maxX)
                 }
+                maxX = max(isLeftToRight ? currentX : widthMax - currentX, maxX)
                 rows[rows.count - 1].append(view)
                 newViews.append(view)
                 rowSignature.append(index)
                 window.rowIndex = rows.count - 1
+                previousDisplayIndex = displayIndex
             } else {
                 // release images and stale window references from unused recycledViews; they take lots of RAM
                 view.thumbnail.releaseImage()
@@ -530,7 +579,9 @@ class TilesView {
                 view.window_ = nil
             }
         }
-        scrollView.documentView!.subviews = newViews
+        let labelWidth = max(0, maxX - Appearance.interCellPadding * 2)
+        newDisplayGroupLabels.forEach { $0.frame.size.width = labelWidth }
+        scrollView.documentView!.subviews = newViews.map { $0 as NSView } + newDisplayGroupLabels
         scrollView.documentView!.addSubview(thumbnailOverView)
         thumbnailOverView.scrollView = scrollView
         let docLayer = scrollView.documentView!.layer!
@@ -538,6 +589,17 @@ class TilesView {
             docLayer.insertSublayer(thumbnailUnderLayer, at: 0)
         }
         return (maxX, maxY, labelHeight, rowSignature)
+    }
+
+    private static func displayGroupLabel(_ index: Int) -> LightLabel {
+        if index >= displayGroupLabels.count {
+            let label = LightLabel()
+            label.font = .systemFont(ofSize: 11, weight: .medium)
+            label.textColor = .secondaryLabelColor
+            label.alignment = App.shared.userInterfaceLayoutDirection == .leftToRight ? .left : .right
+            displayGroupLabels.append(label)
+        }
+        return displayGroupLabels[index]
     }
 
     private static func needNewLine(_ projectedX: CGFloat, _ widthMax: CGFloat) -> Bool {
@@ -723,6 +785,12 @@ class ScrollView: NSScrollView {
         scrollerKnobStyle = .light
         horizontalScrollElasticity = .none
         usesPredominantAxisScrolling = true
+        contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(scrolled),
+            name: NSView.boundsDidChangeNotification,
+            object: contentView)
         observeScrollingEvents()
     }
 
@@ -733,6 +801,7 @@ class ScrollView: NSScrollView {
 
     @objc private func scrollingStarted() { isCurrentlyScrolling = true }
     @objc private func scrollingEnded() { isCurrentlyScrolling = false }
+    @objc private func scrolled() { TilesPanelMirrors.scheduleSync() }
 
     /// holding shift and using the scrolling wheel will generate a horizontal movement
     /// shift can be part of shortcuts so we force shift scrolls to be vertical

@@ -26,6 +26,15 @@ Routing: `captureScreenshot` for every window, except fullscreen windows and, wh
 effective settings enable preview-selected-window, all windows (full-resolution path) — those use
 `captureSampleBuffer`.
 
+The official and dual-instance WeChat clients set their windows' sharing state to `none`, so both public
+per-window SCK capture and `CGSHWCaptureWindowList` return a black frame. For only those two exact bundle
+identifiers, AltTab skips window capture and deliberately leaves the tile on its application icon. This avoids
+black thumbnails and avoids accidentally showing pixels from an overlapping window.
+
+The capture scale is chosen from the display containing the largest area of the window's current Quartz
+frame before consulting its cached `screenId`. This matters during display/Space transitions: the cached id
+can briefly still name a 1× main display while the window already occupies a 2× external display.
+
 ## Edge cases
 
 - **Stale fullscreen state**: `isFullscreen` is snapshotted on the main thread when the burst is built, so
@@ -38,6 +47,19 @@ effective settings enable preview-selected-window, all windows (full-resolution 
 - **Privacy attribution cost is API-independent**: both APIs flip replayd's screen-capture attribution
   (~4 `updateScreenCaptureDidStart` events per capture) and cost systemstatusd the same CPU (measured
   within 2%). Switching APIs fixes the WindowServer leak, not the per-capture attribution overhead.
+
+## Regression tests
+
+- **testCaptureScreenUsesTheLargestWindowIntersection** — the actual negative-coordinate external display
+  wins even if another display is the main display.
+- **testCaptureScreenReturnsNilWhenTheWindowMissesEveryDisplay** — off-display geometry falls back to the
+  cached screen id instead of inventing a match.
+- **testOfficialWeChatUsesAppIconInsteadOfWindowCapture** — the official client's exact bundle id skips
+  window capture.
+- **testDualWeChatUsesAppIconInsteadOfWindowCapture** — the dual-instance client's exact bundle id does the
+  same.
+- **testUnrelatedAppsKeepNormalWindowCapture** — similarly named or unrelated protected windows stay on the
+  normal per-window capture path.
 
 ## Measurements (2026-07-11, macOS 26.5.1, M-series, 29-window payload, 10 switcher cycles per run)
 

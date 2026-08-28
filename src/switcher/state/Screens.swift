@@ -26,6 +26,9 @@ extension NSScreen {
             case .includingMouse: return withMouse()
             case .active: return NSScreen.active()
             case .includingMenubar: return NSScreen.screens.first
+            // One panel remains the key, interactive panel. The same screen-selection rule as
+            // `active` chooses its home; read-only synchronized panels are shown on the others.
+            case .all: return NSScreen.active()
         }
     }
 

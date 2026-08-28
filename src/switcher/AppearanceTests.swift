@@ -1,6 +1,42 @@
 import XCTest
 
 final class AppearanceTests: XCTestCase {
+    func testIndicesGroupedByDisplayPreservesOrderWithinEachDisplay() {
+        XCTAssertEqual(
+            AppearanceTestable.indicesGroupedByDisplay([1, nil, 0, 1, 0], fallbackDisplayIndex: 0),
+            [1, 2, 4, 0, 3])
+    }
+
+    func testIndicesGroupedByDisplayCanAssignWindowlessAppsToTriggeredDisplay() {
+        XCTAssertEqual(
+            AppearanceTestable.indicesGroupedByDisplay([0, nil, 1], fallbackDisplayIndex: 1),
+            [0, 1, 2])
+    }
+
+    func testStartsNewDisplayRowOnlyAtAnEnabledDisplayBoundary() {
+        XCTAssertFalse(AppearanceTestable.startsNewDisplayRow(nil, 0, true))
+        XCTAssertFalse(AppearanceTestable.startsNewDisplayRow(0, 0, true))
+        XCTAssertTrue(AppearanceTestable.startsNewDisplayRow(0, 1, true))
+        XCTAssertFalse(AppearanceTestable.startsNewDisplayRow(0, 1, false))
+    }
+
+    func testDisplayGroupStartsAtTheFirstWindowAndEveryDisplayBoundary() {
+        XCTAssertTrue(AppearanceTestable.startsDisplayGroup(nil, 0, true))
+        XCTAssertFalse(AppearanceTestable.startsDisplayGroup(0, 0, true))
+        XCTAssertTrue(AppearanceTestable.startsDisplayGroup(0, 1, true))
+        XCTAssertFalse(AppearanceTestable.startsDisplayGroup(nil, 0, false))
+    }
+
+    func testDisplayGroupTitleIncludesDisplayNumberAndSpaceScope() {
+        XCTAssertEqual(AppearanceTestable.displayGroupTitle(2, "显示器", "所有桌面"), "显示器 2 · 所有桌面")
+    }
+
+    func testMirrorSnapshotRetriesAreBounded() {
+        XCTAssertTrue(AppearanceTestable.shouldRetryMirrorSnapshot(0))
+        XCTAssertTrue(AppearanceTestable.shouldRetryMirrorSnapshot(2))
+        XCTAssertFalse(AppearanceTestable.shouldRetryMirrorSnapshot(3))
+    }
+
     // TODO add 6, 7, 8 rowsCount and reuse vertical screens data from bellow
     func testGoodValuesForThumbnailsWidthMinMax() throws {
         var actual: (CGFloat, CGFloat)
@@ -72,4 +108,34 @@ final class AppearanceTests: XCTestCase {
         ("55\" TV: LG OLED55CXPUA: 4K", (3840, 2160), (1210.0, 715.0), (0.49, 0.83), [(3, 0.21, 0.30), (4, 0.16, 0.30), (5, 0.13, 0.28)]),
         ("60\" TV: Vizio 60-inch 4K: 4K", (3840, 2160), (1320.0, 750.0), (0.45, 0.80), [(3, 0.23, 0.30), (4, 0.17, 0.30), (5, 0.14, 0.30)]),
     ]
+}
+
+final class WindowCaptureEventsTests: XCTestCase {
+    func testCaptureScreenUsesTheLargestWindowIntersection() {
+        let screens = [
+            CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            CGRect(x: -1470, y: 425, width: 1470, height: 956),
+        ]
+        XCTAssertEqual(WindowCaptureEventsTestable.screenIndexForCapture(
+            CGRect(x: -1312, y: 489, width: 972, height: 821), screens), 1)
+    }
+
+    func testCaptureScreenReturnsNilWhenTheWindowMissesEveryDisplay() {
+        XCTAssertNil(WindowCaptureEventsTestable.screenIndexForCapture(
+            CGRect(x: 5000, y: 5000, width: 200, height: 100),
+            [CGRect(x: 0, y: 0, width: 1920, height: 1080)]))
+    }
+
+    func testOfficialWeChatUsesAppIconInsteadOfWindowCapture() {
+        XCTAssertTrue(WindowCaptureEventsTestable.usesAppIconInsteadOfWindowCapture("com.tencent.xinWeChat"))
+    }
+
+    func testDualWeChatUsesAppIconInsteadOfWindowCapture() {
+        XCTAssertTrue(WindowCaptureEventsTestable.usesAppIconInsteadOfWindowCapture("com.tencent.xinWeChat.dual.codex"))
+    }
+
+    func testUnrelatedAppsKeepNormalWindowCapture() {
+        XCTAssertFalse(WindowCaptureEventsTestable.usesAppIconInsteadOfWindowCapture("com.example.private-window"))
+        XCTAssertFalse(WindowCaptureEventsTestable.usesAppIconInsteadOfWindowCapture(nil))
+    }
 }
