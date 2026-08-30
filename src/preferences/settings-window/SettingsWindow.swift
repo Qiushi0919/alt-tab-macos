@@ -302,6 +302,9 @@ class SettingsWindow: NSWindow {
     private let sectionsStack = NSStackView()
     private let upgradeButton = UpgradeButton()
     private let quitButton = NSButton(title: String(format: NSLocalizedString("Quit %@", comment: "%@ is AltTab"), App.name), target: nil, action: #selector(NSApplication.terminate(_:)))
+    private let sidebarVersionLabel = NSTextField(labelWithString: "")
+    private let sidebarUpdateButton = NSButton(title: NSLocalizedString("Check for updates…", comment: ""), target: nil, action: nil)
+    private let sidebarUpdateStack = NSStackView()
     private var sections = [SettingsSection]()
     private var visibleSections = [SettingsSection]()
     private var selectedSectionId: String?
@@ -395,6 +398,7 @@ class SettingsWindow: NSWindow {
     private func setupSidebar() {
         setupSearchField(sidebarContainer)
         setupQuitButton(sidebarContainer)
+        setupSidebarUpdateArea(sidebarContainer)
         setupSidebarTable(sidebarContainer)
         // Match macOS System Settings: Tab cycles between the search field and the sidebar
         // table only. The nextValidKeyView overrides on these two subclasses keep AppKit's
@@ -506,8 +510,44 @@ class SettingsWindow: NSWindow {
             // too far in.
             sidebarScrollView.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
             sidebarScrollView.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
-            sidebarScrollView.bottomAnchor.constraint(equalTo: quitButton.topAnchor, constant: -10),
+            sidebarScrollView.bottomAnchor.constraint(equalTo: sidebarUpdateStack.topAnchor, constant: -10),
         ])
+    }
+
+    private func setupSidebarUpdateArea(_ parent: NSView) {
+        sidebarVersionLabel.stringValue = "\(NSLocalizedString("Version", comment: "")) \(App.version)"
+        sidebarVersionLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        sidebarVersionLabel.textColor = .secondaryLabelColor
+        sidebarVersionLabel.alignment = .center
+
+        sidebarUpdateButton.target = self
+        sidebarUpdateButton.action = #selector(checkForUpdatesFromSidebar)
+        sidebarUpdateButton.bezelStyle = .rounded
+        sidebarUpdateButton.bezelColor = .controlAccentColor
+        sidebarUpdateButton.contentTintColor = .white
+        if #available(macOS 11.0, *) {
+            sidebarUpdateButton.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
+            sidebarUpdateButton.imagePosition = .imageLeading
+        }
+
+        sidebarUpdateStack.orientation = .vertical
+        sidebarUpdateStack.alignment = .centerX
+        sidebarUpdateStack.spacing = 7
+        sidebarUpdateStack.addArrangedSubview(sidebarVersionLabel)
+        sidebarUpdateStack.addArrangedSubview(sidebarUpdateButton)
+        sidebarUpdateStack.translatesAutoresizingMaskIntoConstraints = false
+        parent.addSubview(sidebarUpdateStack)
+        NSLayoutConstraint.activate([
+            sidebarUpdateStack.leadingAnchor.constraint(equalTo: parent.leadingAnchor, constant: Self.sidebarHorizontalPadding),
+            sidebarUpdateStack.trailingAnchor.constraint(equalTo: parent.trailingAnchor, constant: -Self.sidebarHorizontalPadding),
+            sidebarUpdateStack.bottomAnchor.constraint(equalTo: quitButton.topAnchor, constant: -10),
+            sidebarVersionLabel.widthAnchor.constraint(equalTo: sidebarUpdateStack.widthAnchor),
+            sidebarUpdateButton.widthAnchor.constraint(equalTo: sidebarUpdateStack.widthAnchor),
+        ])
+    }
+
+    @objc private func checkForUpdatesFromSidebar(_ sender: NSButton) {
+        ForkUpdateChecker.shared.checkInteractively()
     }
 
     private func setupUpgradeButton(_ parent: NSView) {
