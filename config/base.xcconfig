@@ -2,7 +2,7 @@
 
 PRODUCT_NAME = AltTab
 PRODUCT_BUNDLE_IDENTIFIER = com.lwouis.alt-tab-macos
-CURRENT_PROJECT_VERSION = 11.5.0.2
+CURRENT_PROJECT_VERSION = 11.5.0.3
 // 10.14.4 is where the Swift 5 runtime starts shipping in macOS. Below it, Xcode embeds ~11MB of
 // libswift*.dylib for the x86_64 slice (arm64 never needs them, its floor is 11.0). Keep the value
 // bare: scripts/update_appcast.sh awk-splits this line to fill sparkle:minimumSystemVersion.

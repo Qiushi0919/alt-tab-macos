@@ -19,7 +19,7 @@ class DebugProfile {
             // surface them outside the collapsible <details> section.
             ("App", "\(App.name) v\(App.version)"),
             ("macOS", ProcessInfo.processInfo.operatingSystemVersionString),
-            ("License", LicenseManager.shared.state.debugProfileLabel),
+            ("Edition", "Community"),
             // app
             ("App preferences", appPreferences()),
             ("Applications", String(Applications.list.count)),

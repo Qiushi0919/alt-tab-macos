@@ -6,10 +6,8 @@ import Foundation
 /// caret, refresh, edit menu, `App.cycleSelection`). No globals, no AppKit, no async — so every
 /// interaction is unit-testable. Behavior mirrors the original branch order exactly.
 ///
-/// Pro gating note: `ProFeature.searchInSwitcher.attemptUse()` has side effects (it can consume the
-/// free pass and surface the upgrade UI), so the caller evaluates it at the real attempt moment and
-/// passes the resulting `Bool` in — the kernel never calls it. `toggle` is gate-free because the
-/// original `toggleSearchModeFromShortcut` delegated gating to `enableSearchEditing` / `disableSearchMode`.
+/// `canSearch` remains an input so the decision kernel can model availability independently from
+/// AppKit, although the community edition always passes `true`.
 
 enum SearchMode {
     case off
@@ -27,8 +25,7 @@ enum CycleDirection: Equatable {
     case left, right, up, down
 }
 
-/// Which production path the search shortcut should take. The Pro gate is applied by the caller
-/// inside the chosen path (matching the original delegation).
+/// Which production path the search shortcut should take.
 enum SearchToggleRoute: Equatable { case enterEditing, disable }
 
 enum SearchModeDecision: Equatable {
@@ -53,12 +50,12 @@ enum SearchModeResolver {
         startInSearch ? .editing : .off
     }
 
-    /// Search shortcut: editing → turn off; off → enter editing. Gate applied by caller.
+    /// Search shortcut: editing → turn off; off → enter editing.
     static func toggle(mode: SearchMode) -> SearchToggleRoute {
         mode == .editing ? .disable : .enterEditing
     }
 
-    /// Gate FIRST (mirrors `attemptUse()` on entry), then the already-editing short-circuit, else enter.
+    /// Check availability first, then the already-editing short-circuit, else enter.
     static func enableEditing(mode: SearchMode, canSearch: Bool) -> SearchModeDecision {
         if !canSearch { return .proGateBlocked }
         if mode == .editing { return .placeCaretOnly }

@@ -64,22 +64,9 @@ enum ProFeature: Equatable, Hashable {
     /// True when Pro is locked (post-expiration).
     var isLocked: Bool { LicenseManager.shared.isProLocked }
 
-    /// Attempt to use this feature at runtime. Returns `true` if the action should proceed.
-    /// For hard-gated features during trial/pro the answer is always `true`; once locked this
-    /// consults the free-pass ladder in `ProTransitionManager`. Degradable-only features
-    /// always return `true` because they are gated at preference-write time, not at use time.
-    /// During an active free-pass session every feature is allowed without re-consuming the
-    /// free pass — the user is mid-session with one Pro summon, so search and extra-shortcut
-    /// chords inside that session must work without firing [C] inline.
+    /// Community edition keeps upstream call sites source-compatible and allows every feature.
     func attemptUse() -> Bool {
-        if LicenseManager.shared.isProAvailable { return true }
-        if ProTransitionManager.shared.isFreePassSessionActive { return true }
-        switch self {
-        case .extraShortcut, .searchInSwitcher:
-            return ProTransitionManager.shared.attemptHardGatedFeature(self)
-        case .appIconsAndTitlesStyle, .autoSize, .searchOnReleaseShortcut:
-            return true
-        }
+        return true
     }
 
     /// True when the user's stored preference currently holds the Pro value. Used by

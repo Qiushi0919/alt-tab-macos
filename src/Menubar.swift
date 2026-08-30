@@ -5,9 +5,6 @@ class Menubar {
     static var menu: NSMenu!
     static var permissionCalloutMenuItems: [NSMenuItem]?
     private static var permissionCallout: PermissionCallout?
-    private static var upgradeToProMenuItem: NSMenuItem!
-    private static var supportProjectMenuItem: NSMenuItem!
-    private static var myAccountMenuItem: NSMenuItem!
     private static let menuDelegate = MenubarMenuDelegate()
     private static var isVisibleObserver: NSKeyValueObservation?
 
@@ -43,11 +40,7 @@ class Menubar {
         addMenuItem(String(format: NSLocalizedString("About %@", comment: "Menubar option. %@ is AltTab"), App.name), #selector(App.showAboutWindow), "", "info.circle", nil, App.self)
         addMenuItem(NSLocalizedString("Debug tools", comment: "Menubar option"), #selector(App.showDebugWindow), "", "scope", nil, App.self)
         addMenuItem(NSLocalizedString("Send feedback…", comment: "Menubar option"), #selector(App.showFeedbackPanel), "", "text.bubble", nil, App.self)
-        upgradeToProMenuItem = addMenuItem(NSLocalizedString("Get Pro", comment: "Menubar option"), App.upgradeToProAction, "", "star.fill", nil, App.self)
-        upgradeToProMenuItem.view = UpgradeMenuItemView()
-        myAccountMenuItem = addMenuItem(NSLocalizedString("My Account", comment: ""), App.openAccountAction, "", "person.crop.circle", nil, App.self)
-        supportProjectMenuItem = addMenuItem(NSLocalizedString("Support this project", comment: "Menubar option"), App.supportProjectAction, "", "heart.fill", .red, App.self)
-        refreshLicenseMenuItems()
+        addMenuItem(NSLocalizedString("Support this project", comment: "Menubar option"), App.supportProjectAction, "", "heart.fill", .red, App.self)
         menu.addItem(NSMenuItem.separator())
         addMenuItem(String(format: NSLocalizedString("Quit %@", comment: "%@ is AltTab"), App.name), #selector(NSApplication.terminate(_:)), "q", nil) // "xmark.rectangle" is not necessary; macos automatically recognizes Quit
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -60,42 +53,6 @@ class Menubar {
         // invalidates NSStatusBarContentView mid-FBS-scene-update — `_NSDetectedLayoutRecursion`.
         applyMenubarIconPreferences()
         observeRemovalFromMenubar()
-    }
-
-    static func refreshLicenseMenuItems() {
-        guard upgradeToProMenuItem != nil else { return }
-        let state = LicenseManager.shared.state
-        switch state {
-        case .trial:
-            toggleUpgradeMenuItem(true)
-            supportProjectMenuItem.isHidden = true
-            myAccountMenuItem.isHidden = true
-        case .pro:
-            toggleUpgradeMenuItem(false)
-            supportProjectMenuItem.isHidden = true
-            myAccountMenuItem.isHidden = false
-        case .proExpired:
-            toggleUpgradeMenuItem(true)
-            supportProjectMenuItem.isHidden = false
-            myAccountMenuItem.isHidden = false
-        case .trialExpired:
-            toggleUpgradeMenuItem(true)
-            supportProjectMenuItem.isHidden = false
-            myAccountMenuItem.isHidden = true
-        }
-        if case .pro = state { return }
-        (upgradeToProMenuItem.view as? UpgradeMenuItemView)?.updateContent(state)
-    }
-
-    private static func toggleUpgradeMenuItem(_ show: Bool) {
-        if show && !menu.items.contains(upgradeToProMenuItem) {
-            if let i = menu.items.firstIndex(of: supportProjectMenuItem) {
-                menu.insertItem(upgradeToProMenuItem, at: i)
-            }
-        }
-        if !show && menu.items.contains(upgradeToProMenuItem) {
-            menu.removeItem(upgradeToProMenuItem)
-        }
     }
 
     // The callout is only useful when the user lacks Screen Recording AND has settings that need it
@@ -207,28 +164,6 @@ class Menubar {
     static private func updateBadgeDotOverlay() {
         badgeDotLayer?.removeFromSuperlayer()
         badgeDotLayer = nil
-        guard ProTransitionManager.shared.shouldShowBadgeDot, let button = statusItem?.button else { return }
-        button.wantsLayer = true
-        guard let buttonLayer = button.layer else { return }
-        let dotSize: CGFloat = 7
-        // Anchor to the icon's bottom-right corner (not the button bounds). The button is
-        // typically taller than the icon — especially on macOS Tahoe — so positioning relative
-        // to button.bounds leaves the dot in the empty space below the icon. `imageRect`
-        // returns the icon's actual rendered rect in NSView coords (y up).
-        let imageRect = button.cell?.imageRect(forBounds: button.bounds) ?? button.bounds
-        // CALayer uses y-down (origin top-left); imageRect is in NSView y-up. Convert the
-        // icon's bottom edge to layer space: `button.bounds.height - imageRect.minY`.
-        let dot = CALayer()
-        dot.frame = NSRect(
-            x: imageRect.maxX - dotSize,
-            y: button.bounds.height - imageRect.minY - dotSize,
-            width: dotSize, height: dotSize)
-        dot.backgroundColor = NSColor.systemOrange.cgColor
-        dot.cornerRadius = dotSize / 2
-        dot.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
-        dot.autoresizingMask = [.layerMinXMargin, .layerMinYMargin]
-        buttonLayer.addSublayer(dot)
-        badgeDotLayer = dot
     }
 
     static func showPopoverFromMenubar(_ popover: NSPopover) {
@@ -390,15 +325,11 @@ class UpgradeMenuItemView: NSView {
         let location = convert(event.locationInWindow, from: nil)
         guard bounds.contains(location) else { return }
         enclosingMenuItem?.menu?.cancelTracking()
-        App.upgradeToPro()
     }
 }
 
 private final class MenubarMenuDelegate: NSObject, NSMenuDelegate {
-    // Trial day count is baked into `LicenseManager.state`; recompute right before the menu
-    // opens so the dropdown subtitle reflects the current clock instead of the launch-day value.
     func menuWillOpen(_ menu: NSMenu) {
-        LicenseManager.shared.refreshState()
         Menubar.refreshPermissionCallout()
     }
 }

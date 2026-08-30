@@ -95,65 +95,42 @@ extension PreferenceDefinition {
     }
 }
 
-/// Registry of every Pro-gated preference. Each entry is declared once here — no more parallel
-/// lists in `Preferences.defaultValues`, `Preferences.<prop>` getter, `ProFeature.preferenceKey`,
-/// `ProFeature.rememberedKey`, `ProFeature.snapshotAndDowngradeStored`, `ProFeature.restoreStored`,
-/// `ProFeature.isStoredValuePro`.
+/// Community-edition preference descriptors. The upstream gate shape stays intact for painless
+/// rebases, but every descriptor has a nil gate and therefore reads and writes its selected value
+/// directly.
 enum ProGatedPreferences {
     static let appearanceStyle = PreferenceDefinition<AppearanceStylePreference>(
         key: "appearanceStyle",
         default: .thumbnails,
-        gate: PreferenceGate(
-            freeEquivalent: .thumbnails,
-            rememberedKey: "rememberedAppearanceStyle",
-            isProValue: { $0 != .thumbnails }))
+        gate: nil)
 
     static let appearanceSize = PreferenceDefinition<AppearanceSizePreference>(
         key: "appearanceSize",
         default: .auto,
-        gate: PreferenceGate(
-            freeEquivalent: .medium,
-            rememberedKey: "rememberedAppearanceSize",
-            isProValue: { $0 == .auto }))
+        gate: nil)
 
     static let shortcutStyle = PreferenceDefinition<ShortcutStylePreference>(
         key: "shortcutStyle",
         default: .focusOnRelease,
-        gate: PreferenceGate(
-            freeEquivalent: .doNothingOnRelease,
-            rememberedKey: "rememberedShortcutStyle",
-            isProValue: { $0 == .searchOnRelease }))
+        gate: nil)
 
-    // Per-shortcut overrides for shortcut 0 (the only index reachable while Pro is locked, since
-    // extra shortcuts >= 1 are hard-gated at trigger time). Snapshot/restore plumbing mirrors the
-    // global gates above. Registered defaults are the FREE values, so `snapshotAndDowngrade` is a
-    // no-op for unset overrides — only explicitly-set Pro overrides get snapshotted on lock.
+    // Per-shortcut overrides retain the upstream descriptor names for settings migration.
     static let appearanceStyleOverride0 = PreferenceDefinition<AppearanceStylePreference>(
         key: "appearanceStyleOverride",
         default: .thumbnails,
-        gate: PreferenceGate(
-            freeEquivalent: .thumbnails,
-            rememberedKey: "rememberedAppearanceStyleOverride",
-            isProValue: { $0 != .thumbnails }))
+        gate: nil)
 
     static let appearanceSizeOverride0 = PreferenceDefinition<AppearanceSizePreference>(
         key: "appearanceSizeOverride",
         default: .medium,
-        gate: PreferenceGate(
-            freeEquivalent: .medium,
-            rememberedKey: "rememberedAppearanceSizeOverride",
-            isProValue: { $0 == .auto }))
+        gate: nil)
 
     static let shortcutStyleOverride0 = PreferenceDefinition<ShortcutStylePreference>(
         key: "shortcutStyleOverride",
         default: .doNothingOnRelease,
-        gate: PreferenceGate(
-            freeEquivalent: .doNothingOnRelease,
-            rememberedKey: "rememberedShortcutStyleOverride",
-            isProValue: { $0 == .searchOnRelease }))
+        gate: nil)
 
-    /// All Pro-gated preferences as type-erased descriptors. Iterated by `ProTransitionState`
-    /// on lock / unlock.
+    /// Type-erased descriptors retained for compatibility with the upstream transition code.
     static let all: [AnyProGatedPreference] = [
         appearanceStyle.erased,
         appearanceSize.erased,

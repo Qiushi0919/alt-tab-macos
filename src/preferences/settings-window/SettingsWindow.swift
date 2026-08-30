@@ -395,7 +395,6 @@ class SettingsWindow: NSWindow {
     private func setupSidebar() {
         setupSearchField(sidebarContainer)
         setupQuitButton(sidebarContainer)
-        setupUpgradeButton(sidebarContainer)
         setupSidebarTable(sidebarContainer)
         // Match macOS System Settings: Tab cycles between the search field and the sidebar
         // table only. The nextValidKeyView overrides on these two subclasses keep AppKit's
@@ -507,7 +506,7 @@ class SettingsWindow: NSWindow {
             // too far in.
             sidebarScrollView.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
             sidebarScrollView.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
-            sidebarScrollView.bottomAnchor.constraint(equalTo: upgradeButton.topAnchor, constant: -10),
+            sidebarScrollView.bottomAnchor.constraint(equalTo: quitButton.topAnchor, constant: -10),
         ])
     }
 
@@ -1248,20 +1247,6 @@ extension SettingsWindow: NSWindowDelegate {
 
     func windowDidEndLiveResize(_ notification: Notification) {
         liveResizeOriginX = nil
-    }
-
-    func windowDidBecomeKey(_ notification: Notification) {
-        // Trial day count is baked into `LicenseManager.state` and only recomputed on reassignment.
-        // Refresh before the user reads the upgrade button / upgrade tab so the day count is current.
-        LicenseManager.shared.refreshState()
-        if isShowingUpgradeView {
-            UpgradeTab.refreshStatus()
-        }
-        guard !hasPlayedShine else { return }
-        hasPlayedShine = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.upgradeButton.playShineAnimation()
-        }
     }
 
     func windowWillClose(_ notification: Notification) {
