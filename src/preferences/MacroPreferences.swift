@@ -386,6 +386,8 @@ enum UpdatePolicyPreference: CaseIterable, MacroPreference {
     case autoCheck
     case autoInstall
 
+    static let customBuildCases: [UpdatePolicyPreference] = [.manual, .autoCheck]
+
     var localizedString: LocalizedString {
         switch self {
             case .manual: return NSLocalizedString("Don’t check for updates periodically", comment: "")

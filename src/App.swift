@@ -2,7 +2,6 @@ import Cocoa
 import Darwin
 import ShortcutRecorder
 import AppCenterCrashes
-import Sparkle
 
 class App: AppCenterApplication {
     /// periphery:ignore
@@ -13,7 +12,7 @@ class App: AppCenterApplication {
     static let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as! String
     static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as! String
     static let licence = Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as! String
-    static let repository = "https://github.com/lwouis/alt-tab-macos"
+    static let repository = "https://github.com/Qiushi0919/alt-tab-macos"
     static let appIconReps = CGImage.allNamed("app.icns")
 
     static func appIcon(for size: NSSize) -> CGImage {
@@ -32,8 +31,6 @@ class App: AppCenterApplication {
     // periphery:ignore
     private static var appCenterDelegate: AppCenterCrash?
     // periphery:ignore
-    static var sparkleDelegate: SparkleDelegate?
-    static var updaterController: SPUStandardUpdaterController?
     // don't queue multiple delayed rebuildUi() calls
     private static var delayedDisplayScheduled = 0
     private static let switcherUiRefreshThrottler = Throttler(delayInMs: 200)
@@ -129,7 +126,7 @@ class App: AppCenterApplication {
         let wasFresh = FeedbackWindow.shared == nil
         initializeFeedbackWindowIfNeeded()
         // Fresh init already runs reset(); skip the redundant second call so we don't
-        // double-fire the Sparkle preflight on the first ever open.
+        // double-fire the update preflight on the first ever open.
         if !wasFresh { FeedbackWindow.shared?.reset() }
         showSecondaryWindow(FeedbackWindow.shared!)
     }
@@ -446,14 +443,7 @@ class App: AppCenterApplication {
         CursorEvents.observe()
         TrackpadEvents.observe()
         CliEvents.observe()
-        App.sparkleDelegate = SparkleDelegate()
-        App.updaterController = SPUStandardUpdaterController(
-            startingUpdater: false,
-            updaterDelegate: App.sparkleDelegate!,
-            userDriverDelegate: nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
-            App.updaterController?.startUpdater()
-        }
+        ForkUpdateChecker.shared.start()
         PreferencesEvents.initialize()
         BenchmarkRunner.startIfNeeded()
         showSettingsWindowOnFirstLaunchIfNeeded()

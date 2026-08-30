@@ -1,6 +1,5 @@
 import Cocoa
 import Foundation
-import Sparkle
 
 enum FeedbackKind: Hashable {
     case bug
@@ -40,7 +39,7 @@ class FeedbackWindow: NSWindow {
     /// completion handler bumps it back to false. Used to avoid double-submits and to decide
     /// whether the error alert is still relevant when a response finally arrives.
     private var isSubmitting = false
-    /// Bumped before each Sparkle update check, and again on any window-state change that
+    /// Bumped before each update check, and again on any window-state change that
     /// invalidates that check (close, reset, user navigating away). The completion closures
     /// captured by the check compare against this generation and no-op on mismatch — that
     /// stops a late-arriving network response from popping a dialog on a closed window or
@@ -60,7 +59,7 @@ class FeedbackWindow: NSWindow {
     }
 
     /// Returns the window to the kind picker. Drafts are NOT cleared — they're only wiped by a
-    /// successful POST. Any in-flight Sparkle check is invalidated so its late completion can't
+    /// successful POST. Any in-flight update check is invalidated so its late completion can't
     /// surprise the user. Called from init and from `App.showFeedbackPanel` on each reopen.
     func reset() {
         invalidatePendingUpdateCheck()
@@ -158,32 +157,15 @@ class FeedbackWindow: NSWindow {
     // MARK: - Update check on bug click
 
     /// Decide whether to show the update alert or the bug form, possibly after a one-time
-    /// Sparkle round-trip. The check itself only runs once per app session:
+    /// GitHub round-trip. The check itself only runs once per app session:
     ///   * cache hit → resolve instantly, no spinner
     ///   * cache miss → morph the bug card into a spinner + "Check for updates…" and wait on
-    ///     whichever fires first: Sparkle's delegate callback, or a 5-second timeout
-    /// Either branch caches its outcome on `SparkleDelegate.cachedResult`, so subsequent
-    /// clicks (this session) skip the spinner entirely. Sparkle's `startUpdater()` is
-    /// idempotent — calling it here makes the path work even when the 30-second post-launch
-    /// timer hasn't fired yet.
+    ///     whichever fires first: the GitHub response, or a 5-second timeout
+    /// Either branch caches its outcome, so subsequent clicks in this session skip the spinner.
     private func checkForUpdatesAndProceed() {
-        guard let controller = App.updaterController, let sparkleDelegate = App.sparkleDelegate else {
-            showForm()
-            return
-        }
-
-        // Cache hit — decide instantly. No card morph, no network call.
-        if let cached = sparkleDelegate.cachedResult {
+        let updateChecker = ForkUpdateChecker.shared
+        if let cached = updateChecker.cachedResult {
             apply(updateCheckResult: cached)
-            return
-        }
-
-        controller.startUpdater()
-        if controller.updater.sessionInProgress {
-            // Another Sparkle check is already running (auto-check, manual check). Don't
-            // start a competing one; just fall through. The in-flight check's natural
-            // completion will populate the cache for next time.
-            showForm()
             return
         }
 
@@ -192,63 +174,52 @@ class FeedbackWindow: NSWindow {
         bugCard?.setLoading(NSLocalizedString("Check for updates…", comment: ""))
         enhancementCard?.isEnabled = false
 
-        let proceed: (SparkleDelegate.UpdateCheckResult) -> Void = { [weak self] result in
+        let proceed: (ForkUpdateChecker.Result) -> Void = { [weak self] result in
             guard let self = self, self.updateCheckGeneration == mine else { return }
             self.updateCheckGeneration &+= 1
-            sparkleDelegate.onNextCheckCompletion = nil
             self.bugCard?.setNormal()
             self.enhancementCard?.isEnabled = true
             self.apply(updateCheckResult: result)
         }
-
-        sparkleDelegate.onNextCheckCompletion = { result in
-            DispatchQueue.main.async { proceed(result) }
-        }
-        controller.updater.checkForUpdateInformation()
+        updateChecker.checkForUpdateInformation(completion: proceed)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-            // Timeout fallback. Pre-populate the cache as .upToDate so subsequent clicks
-            // this session don't re-spin; if Sparkle's check eventually completes naturally,
-            // the delegate callback overwrites this with the real answer.
-            if sparkleDelegate.cachedResult == nil {
-                sparkleDelegate.cachedResult = .upToDate
+            if updateChecker.cachedResult == nil {
+                updateChecker.cachedResult = .upToDate
             }
             proceed(.upToDate)
         }
     }
 
-    private func apply(updateCheckResult result: SparkleDelegate.UpdateCheckResult) {
+    private func apply(updateCheckResult result: ForkUpdateChecker.Result) {
         switch result {
-        case .updateAvailable(let item): showUpdateAvailableAlert(item: item)
+        case .updateAvailable(let release): showUpdateAvailableAlert(release: release)
         case .upToDate: showForm()
         }
     }
 
     private func invalidatePendingUpdateCheck() {
         updateCheckGeneration &+= 1
-        App.sparkleDelegate?.onNextCheckCompletion = nil
         bugCard?.setNormal()
         enhancementCard?.isEnabled = true
     }
 
     // MARK: - Update-available interception
 
-    private func showUpdateAvailableAlert(item: SUAppcastItem) {
+    private func showUpdateAvailableAlert(release: ForkUpdateChecker.Release) {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = NSLocalizedString("A new version of AltTab is available", comment: "")
         let format = NSLocalizedString(
             "You're running v%1$@. v%2$@ is available. The bug you're seeing may already be fixed — please update first and check before reporting.",
             comment: "")
-        alert.informativeText = String(format: format, App.version, item.displayVersionString)
+        alert.informativeText = String(format: format, App.version, release.version)
         alert.addButton(withTitle: NSLocalizedString("Update now", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Report on current version", comment: ""))
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             close()
-            DispatchQueue.main.async {
-                App.updaterController?.checkForUpdates(nil)
-            }
+            ForkUpdateChecker.shared.openRelease(release)
         } else {
             showForm()
         }
@@ -466,8 +437,7 @@ class FeedbackWindow: NSWindow {
 // Clickable kind card: icon + bold title inside an NSButton. hitTest is overridden so clicks
 // on the inner labels register as a button press rather than being swallowed by the label views.
 // Supports a loading state where the icon is replaced by a spinning NSProgressIndicator and the
-// title is swapped for a "Check for updates…" style hint — used while the bug-card's pre-form
-// Sparkle check is running.
+// title is swapped for a "Check for updates…" style hint while the bug-card's pre-form check runs.
 class FeedbackKindCard: NSButton {
     private let iconView: NSView
     private let spinner: NSProgressIndicator

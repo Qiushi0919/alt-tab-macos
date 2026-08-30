@@ -6,6 +6,8 @@ WorkspaceSettings.xcsettings
 IDEWorkspaceChecks.plist
 /node_modules/
 /DerivedData/
+/DerivedDataRelease/
+/dist/
 /build/
 /vendor/*/.build/
 /vendor/*/.swiftpm/
