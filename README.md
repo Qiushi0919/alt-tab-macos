@@ -8,7 +8,10 @@
 
 ## 本 Fork：多显示器 + 社区版功能
 
-[下载当前定制版 v11.5.0.3](https://github.com/Qiushi0919/alt-tab-macos/releases/tag/v11.5.0.3)
+> [!IMPORTANT]
+> **⬇️ [下载 AltTab 多显示器定制版](https://github.com/Qiushi0919/alt-tab-macos/releases/latest)** · [直接下载 v11.5.0.3 Universal ZIP](https://github.com/Qiushi0919/alt-tab-macos/releases/download/v11.5.0.3/AltTab-multi-display-macOS-universal-v11.5.0.3.zip)
+>
+> 安装包在 GitHub Releases 中，仓库代码页不会显示 ZIP 发布附件。
 
 在“多个屏幕 → 显示于”中选择“所有屏幕”后，触发快捷键会同时在每台显示器上显示切换界面。窗口按所在显示器分组，每组以“显示器 N · 所有桌面”标识。由于微信和微信 2 禁止 macOS 的按窗口截图，它们在切换器中使用应用图标，其他应用仍显示实时窗口缩略图。
 

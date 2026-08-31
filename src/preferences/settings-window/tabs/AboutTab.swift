@@ -15,6 +15,7 @@ class AboutTab {
             BoldLabel(App.name),
             NSTextField(wrappingLabelWithString: NSLocalizedString("Version", comment: "") + " " + App.version),
             NSTextField(wrappingLabelWithString: App.licence),
+            HyperlinkLabel(NSLocalizedString("Open download page", comment: ""), App.repository + "/releases/latest"),
             HyperlinkLabel(NSLocalizedString("Website", comment: ""), Endpoints.website),
             HyperlinkLabel(NSLocalizedString("Source code", comment: ""), App.repository),
         ], .vertical)
